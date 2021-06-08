@@ -1,0 +1,92 @@
+{
+  "apiVersion": "apps/v1",
+  "kind": "StatefulSet",
+  "metadata": {
+    "name": "postgres",
+    "labels": {
+      "app": "postgres-local"
+    }
+  },
+  "spec": {
+    "serviceName": "postgres",
+    "replicas": 1,
+    "selector": {
+      "matchLabels": {
+        "app": "postgres-local"
+      }
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "postgres-local"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "name": "postgres",
+            "image": "postgres:13.1-alpine",
+            "envFrom": [
+              {
+                "configMapRef": {
+                  "name": "postgres-local-config"
+                }
+              }
+            ],
+            "ports": [
+              {
+                "containerPort": 5432,
+                "name": "postgresdb"
+              }
+            ],
+            "volumeMounts": [
+              {
+                "name": "pv-data",
+                "mountPath": "/var/lib/postgresql/data"
+              },
+              {
+                "name": "ddl-data",
+                "mountPath": "/docker-entrypoint-initdb.d/"
+              }
+            ]
+          }
+        ],
+        "initContainers": [
+          {
+            "name": "postgres-ddl",
+            "image": "alpine:3.13.5",
+            "command": [
+              "/bin/sh",
+              "-c"
+            ],
+            "args": [
+              "echo 'Removing PostgreSQL data dir to start from scratch' && rm -Rf /var/lib/postgresql/data/* && echo \"--some sql\" | tee /opt/ddl/data/app-data.schema.sql"
+            ],
+            "volumeMounts": [
+              {
+                "name": "pv-data",
+                "mountPath": "/var/lib/postgresql/data"
+              },
+              {
+                "name": "ddl-data",
+                "mountPath": "/opt/ddl/data"
+              }
+            ]
+          }
+        ],
+        "volumes": [
+          {
+            "name": "pv-data",
+            "persistentVolumeClaim": {
+              "claimName": "postgres-pv-claim"
+            }
+          },
+          {
+            "name": "ddl-data",
+            "emptyDir": {}
+          }
+        ]
+      }
+    }
+  }
+}
